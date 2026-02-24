@@ -173,7 +173,7 @@ bool Director (String inURL)
   String path = server.urlDecode(inURL);
 
   //  Sanitize the path according to the following rules (follows the convention in the
-  //  convertzim.py script):
+  //  asset2zim.py script):
   //
   //  Character   Becomes
   //  ,           x
@@ -182,6 +182,7 @@ bool Director (String inURL)
   //
   //   This prevents the input path containing characters that would derail a query
   //
+  path.replace("%2C", "x");
   path.replace(",", "x");
   path.replace("\"", "y");
   path.replace("'", "z");
@@ -329,7 +330,7 @@ void setup (void)
   SDCARD.setPins(SD_MMC_CLK_PIN, SD_MMC_CMD_PIN, SD_MMC_D0_PIN, SD_MMC_D1_PIN, SD_MMC_D2_PIN, SD_MMC_D3_PIN);
 
   //  The default begin() call only allows 5 open files. We need 20 or so, so we have to call
-  //  a begin() method
+  //  a different begin() method to pass the number of open files needed
   if (SDCARD.begin("/sdcard", false, false, BOARD_MAX_SDMMC_FREQ, 20)) 
   {
     leds = CRGB::Green;
@@ -353,6 +354,11 @@ void setup (void)
   tft.setCursor(0, 0);
   LCD_OUT("Starting...\n");
 #endif  // LCD_ON
+
+  if (!SDCARD.exists("/ASSET.DB"))
+  {
+    errorForever("Did not find database");
+  }
 
   //  Initialize SQLite
   sqlite3_initialize();
