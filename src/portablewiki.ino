@@ -173,7 +173,7 @@ bool Director (String inURL)
   String path = server.urlDecode(inURL);
 
   //  Sanitize the path according to the following rules (follows the convention in the
-  //  asset2zim.py script):
+  //  zim2asset.py script):
   //
   //  Character   Becomes
   //  ,           x
