@@ -6,6 +6,7 @@ import gzip
 import shutil
 import traceback
 from pathlib import Path
+from urllib.parse import unquote
 from libzim.reader import Archive
 
 # We expect an input ZIM file and output directory on the command line
@@ -77,9 +78,12 @@ try:
         item = entry.get_item()
         data = item.content
 
+		# ZIM paths might be URL encoded, which we don't want
+		adjpath = unquote(item.path)
+		
         # We have to adjust the path to replace characters like ,
         # that can cause issues when importing the CSV file
-        adjpath = item.path.replace(",", "x").replace("\"", "y").replace("'", "z")
+        adjpath = adjpath.replace(",", "x").replace("\"", "y").replace("'", "z")
 
         # Get the content type. Some content types have a URL
         # which will not help in a closed system
