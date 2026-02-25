@@ -48,16 +48,23 @@ Access the PortableWiki directory by running the following command (adjust for y
 
 	cd PortableWiki
 
-Run the following commands to install the libzim package (first time only):
+Run the following commands to create a virtual environment, and install the libzim and Pillow packages (first time only):
 
 	python -m venv portablewiki
 	portablewiki/bin/pip install libzim
+	portablewiki/bin/pip install pillow
 
 Run the following command to convert the downloaded ZIM file for use on the T-Dongle:
 
 	portablewiki/bin/python scripts/zim2asset.py ~/Downloads/content.zim assets
 
-Adjust ~/Downloads/content.zim to match the ZIM file download or your OS (Windows would be C:\Users\fred\Downloads\content.zim). The assets directory will be created if it does not exist. This phase can take a long as 60 minutes, depending on the type of content downloaded. There should be no errors reported. If so, insert the SD Card into the USB SD Card Reader and then insert the reader into a USB port. Run the following command to:
+Adjust ~/Downloads/content.zim to match the ZIM file download or your OS (Windows would be C:\Users\fred\Downloads\content.zim). The assets directory will be created if it does not exist. This phase can take a long as 60 minutes, depending on the type of content downloaded. The script can also be run with a --resize option:
+
+	portablewiki/bin/python scripts/zim2asset.py --resize ~/Downloads/content.zim assets/
+
+This will reduce the size of images by 75%. This version of the script will take longer to run, but will serve content much faster. The improved content serving time comes at the cost of visuals as pages may render in a slightly different way.
+
+There should be no errors reported. If so, insert the SD Card into the USB SD Card Reader and then insert the reader into a USB port. Run the following command to:
 
 	python scripts/finish.py assets/ /media/fred/PORTWIKI/
 
@@ -204,19 +211,25 @@ Open a terminal to access the PortableWiki repository directory:
 
 	cd PortableWiki
 
-Create a Python virtual environment and then install the zimlib package:
+Create a Python virtual environment and then install the zimlib and Pillow packages:
 
 	python -m venv portablewiki
 	portablewiki/bin/pip install libzim
+	portablewiki/bin/pip install pillow
 
 This step only needs to be done once. Run the zim2asset.py script from the PortableWiki repository:
 
-portablewiki/bin/python scripts/zim2asset.py ~/Downloads/wikipedia_en_top1m_maxi_2026-01.zim assets/	
+	portablewiki/bin/python scripts/zim2asset.py ~/Downloads/wikipedia_en_top1m_maxi_2026-01.zim assets/	
 
-
-The assets directory will be created by the zim2asset.py script. For every 1000 content files processed, the script output a message similar to the following:
+The assets directory will be created by the zim2asset.py script. For every 1000 content files processed, the script outputs a message similar to the following:
 
 	Complete: 6000/204025 (2.94%)
+
+The script can also be run with a --resize option:
+
+	portablewiki/bin/python scripts/zim2asset.py --resize ~/Downloads/wikipedia_en_top1m_maxi_2026-01.zim assets/	
+
+This improves the content serving time by reducing the size of images by 75%. However, pages may be rendered in a slightly different way due to image reduction. Adding the --resize option depends on your use case and whether smaller images would impact the content.
 
 There should be no errors. Depending on the size, ZIM files can take as long as an hour to process and will output a message similar to the following when finished:
 
@@ -272,4 +285,29 @@ This was an interesting journey. On the surface, using wget to download web cont
 ## Next Steps
 
 1. To make the content serve a little faster, I may look into the use of the ESP Async Web Server. This presents a challenge for SQLite which is not thread safe. The Sketch will have to be adjusted to place the SQLite access into a function and limit access with a mutex.
-2. I may look at reducing JPG and PNG images by 50% to make them load faster.
+2. I may look at reducing JPG and PNG images by 50% to make them load faster. See [Additional Compression](#additional-compression).
+
+## Additional Compression
+
+I was able to find a few more MIME types to add to the list of content passed through the GZIP filter (PW Compress). I added an option to the zim2asset.py script to reduce the size of images by 75% (PW Scaled). The following graph shows the results of the PW Compress and PW Scaled changes:
+
+<img width="75%" height="75%" alt="image" src="https://github.com/user-attachments/assets/688a049b-fa7c-48b0-b0e9-c42693ca30ab" />
+
+
+The Python and JavaScript results are difficult to see on this graph due to the size of the content. The Python documentation sizes are 4.1 MB (ZIM), 5.1 MB (PW Orig), 4.1 MB (PW Compress and PW Scaled)  – a reduction of 1 MB.
+
+The JavaScript documentation sizes are 6.7 MB (ZIM), 13 MB  (PW Orig), 8.5 MB (PW Compress and PW Scaled) – a reduction of 4.5 MB.
+
+The Python and JavaScript documentation only contains text, so there was no change there.
+
+The Astronomy and Top 1M content saw significant reduction in size due to the scaling down of images. The reduction in content size dramatically alters content load time:
+
+<img width="75%" height="75%" alt="image" src="https://github.com/user-attachments/assets/1ae7d7a6-3ff4-44ed-8d7a-3b59c14c3402" />
+
+
+The Wikipedia-EN ALL content loaded in the same amount time as there was no additional content to compress, and no images.
+
+The Astronomy content went from a load time of ~44 seconds (PW Orig) to ~10 seconds (PW Scaled). Reduction in image size does not seem to alter the rendering of this content.
+
+The Ted content went from a load time of ~100 seconds (PW Orig) to ~45 seconds (PW Scaled). Reduction of image size affects the rendering of this content as thumbnails for each video are considerably smaller.
+
