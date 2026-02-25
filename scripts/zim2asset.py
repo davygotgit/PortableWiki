@@ -1,3 +1,4 @@
+import io
 import re
 import os
 import sys
@@ -5,23 +6,88 @@ import glob
 import gzip
 import shutil
 import traceback
+from PIL import Image
 from pathlib import Path
 from urllib.parse import unquote
 from libzim.reader import Archive
 
-# We expect an input ZIM file and output directory on the command line
-if len(sys.argv) != 3:
-    print(f"Usage: {sys.argv [0]} <input ZIM file> <output directory>")
+# Resize a JPG, PNG or WEBP format image
+def resize_image (data, itype):
+    with Image.open(io.BytesIO(data)) as image:
+        # Original dimensions
+        width, height = image.size
+
+        # Reduce to 25% of original
+        nwidth = int(width * 0.25)
+        nheight = int(height * 0.25)
+
+        # Cannot do anything if too small
+        if nwidth == 0 or nheight == 0:
+           return data
+
+        # New image size
+        nsize = (nwidth, nheight)
+
+        # Output byte array
+        barray = io.BytesIO()
+
+        # What type of image?
+        if itype != "GIF" or (itype == "GIF" and not image.is_animated):
+            # Regular image or non-animated GIF
+            resized = image.resize(nsize, Image.Resampling.LANCZOS)
+
+            # Covert image to byte array
+            resized.save(barray, format=itype)
+        else:
+            # Animated GIF has to be processed frame by frame
+            frames = []
+            for frame in range(image.n_frames):
+                image.seek(frame)
+                nframe = image.convert("RGBA").resize(nsize, Image.Resampling.LANCZOS)
+                frames.append(nframe)
+
+            # Save new version of the GIF
+            frames[0].save(
+                barray,
+                format="GIF",
+                save_all=True,
+                append_images=frames[1:],
+                duration=image.info.get('duration', 100),
+                loop=image.info.get('loop', 0),
+                disposal=2)
+
+        # Return byte array for file I/O
+        return bytearray(barray.getvalue())
+
+# We expect an input ZIM file, output directory and optional resize option
+# on the command line
+scale = False
+outdir = ""
+goodopt = True
+zimfile = ""
+if len(sys.argv) == 3:
+    zimfile = sys.argv [1]
+    outdir = sys.argv [2]
+elif len(sys.argv) == 4:
+    if sys.argv [1] == "--resize":
+        scale = True
+    else:
+        goodopt = False
+    zimfile = sys.argv [2]
+    outdir = sys.argv [3]
+else:
+    goodopt = False
+
+if not goodopt:
+    print(f"Usage: {sys.argv [0]} [--resize] <input ZIM file> <output directory>")
     exit()
 
 # Make sure the input ZIM file exists
-zimfile = sys.argv [1]
 if not os.path.exists(zimfile):
     print(f"{zimfile} does not exist")
     exit()
 
 # We can create the output directory
-outdir = sys.argv [2]
 if not outdir.endswith("/"):
     outdir += "/"
 outpath = Path(outdir)
@@ -55,6 +121,10 @@ try:
         mainfile = open(outdir + "MAIN.TXT", "w")
         mainfile.write(item.path + "\n")
         mainfile.close()
+
+	# Lists and dictionaries
+    gzlist = ["text/plain", "text/html", "image/svg+xml", "text/css", "text/vtt", "text/javascript", "application/javascript", "application/json", "application/wasm"]
+    imgdict = { "image/gif": "GIF", "image/jpg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
 
     # Iterate through all relevant entries
     frag = 0
@@ -97,15 +167,23 @@ try:
 
         # See if we can compress this data
         zipped = 0
-        gzlist = ["text/plain", "text/html", "image/svg+xml", "text/css", "application/javascript"]
         if any(item in cty for item in gzlist):
+            # Can compress this content
             zipped = 1
             with gzip.open(fragfn, "ab") as outstream:
                 outstream.write(data)
         else:
-            # Append the content to the current fragment
-            with open(fragfn, "ab") as outstream:
-                 outstream.write(data)
+            # We might be able to resize an image
+            if scale and cty in imgdict:
+                # Can resize this image
+                itype = imgdict.get(cty)
+                resized = resize_image(data, itype)
+                with open(fragfn, "ab") as outstream:
+                     outstream.write(resized)
+            else:
+                # Append the content to the current fragment
+                with open(fragfn, "ab") as outstream:
+                     outstream.write(data)
 
         # Get current fragment file size
         total = os.path.getsize(fragfn)
@@ -173,6 +251,6 @@ try:
     sqlfile.close()
 
 except Exception as e:
-  print(f"Exception: {e}")
+  print(f"\nException: {e}")
   traceback.print_exc()
   exit()
