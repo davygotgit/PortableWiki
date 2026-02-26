@@ -1,5 +1,5 @@
 //
-//  This sketch uses a LILYGO T-Dongle S3 to serve Kiwix content from an SD Card.
+//  This Sketch uses a LILYGO T-Dongle S3 to serve Kiwix content from an SD Card.
 //
 //  License:  MIT. See the LICENSE file in the project root for more details.
 //
