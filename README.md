@@ -284,7 +284,7 @@ This was an interesting journey. On the surface, using wget to download web cont
 
 ## Next Steps
 
-1. To make the content serve a little faster, I may look into the use of the ESP Async Web Server. This presents a challenge for SQLite which is not thread safe. The Sketch will have to be adjusted to place the SQLite access into a function and limit access with a mutex.
+1. To make the content serve a little faster, I may look into the use of the ESP Async Web Server. This presents a challenge for SQLite which is not thread safe. The Sketch will have to be adjusted to place the SQLite access into a function and limit access with a mutex. See [Asynchronous Web Server](#asynchronous-web-server).
 2. I may look at reducing JPG and PNG images by 50% to make them load faster. See [Additional Compression](#additional-compression).
 
 ## Additional Compression
@@ -310,4 +310,18 @@ The Wikipedia-EN ALL content loaded in the same amount time as there was no addi
 The Astronomy content went from a load time of ~44 seconds (PW Orig) to ~10 seconds (PW Scaled). Reduction in image size does not seem to alter the rendering of this content.
 
 The Ted content went from a load time of ~100 seconds (PW Orig) to ~45 seconds (PW Scaled). Reduction of image size affects the rendering of this content as thumbnails for each video are considerably smaller.
+
+
+## Asynchronous Web Server
+
+I added the async-portablewiki.ino Sketch to the async directory in the repository, which uses the ESPAsyncWebServer library. I tried this experiment to see if the asynchronous web server was any faster than the regular web server used in the portablewiki.ino Sketch. 
+
+It turns out that the async web server can quickly overrun the resources available on the T-Dongle – open file handles and memory. Increasing the number of open file handles also reduces the amount of available memory, so low memory conditions occur more often.
+
+To combat this, I added a request counter and a threshold, to limit the number of concurrent requests. This mechanism uses the std::atomic for atomic increments and decrements of the counter. I also had to add a std:mutex to make sure only one SQLite query was in flight at a time. SQLlite is not thread safe, and so this ensures serial access to the query engine. Although this mechanism worked, I was unable to get browsers to retry URLs that could be served due to temporary resource constraints e.g. low memory. There are provisions in HTTP to ask a browser to retry a URL, but that does not seem to happen. I hit upon the idea of prepending /67is61 to the incoming URL, to make it different, and then sending a redirect response (302) back to the browser. This allows the browser to retry the URL using the “redirected” form of the URL. I only use Firefox which will retry a URL ~20 before it gives up. This seems to be enough for most content to be served using this Sketch, but YMMV.
+
+The async changes did not improve performance. The Wikipedia Top 1M articles originally took 45 seconds to load on the original PortableWiki code. After changes to increase compression coverage and reduce the size of images, the load time dropped to 25 seconds. The async changes load the content in 35-41 seconds, depending on how many redirects are issued. This is the first time I have really used the async web server, and it’s possible I coded something incorrectly.
+
+I decided to include the async changes for completeness, but I think the main PortableWiki Sketch is better. Not only is it faster, but it has less complexity. 
+
 
