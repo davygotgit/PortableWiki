@@ -140,7 +140,7 @@ inline size_t GetBlock (File binAsset, char *buffer, const size_t size)
   return read;
 }
 
-//  Determine what to do with the incomming URL
+//  Determine what to do with the incoming URL
 bool Director (String inURL)
 {
   DEBUG_OUT("Got : %s\n", inURL.c_str());
